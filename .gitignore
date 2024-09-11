@@ -1,0 +1,5 @@
+.env 
+vendor
+assets
+node_modules
+bin

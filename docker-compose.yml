@@ -1,0 +1,29 @@
+services:
+ server:
+  build:
+    context: ./
+    dockerfile: Dockerfile
+  ports:
+      - "8080:8080"
+  volumes:
+    - ./:/app
+  networks:
+    - betask-networks
+  command: ["air","-c",".air.toml"]
+
+ client:
+  build:
+      context: ./client/
+      dockerfile: Dockerfile
+  ports:
+      - "5173:5173"
+  volumes:
+    - ./client:/app
+  networks:
+    - betask-networks
+  command: ["pnpm","run","dev"]
+
+networks:
+  betask-networks:
+   driver: bridge
+
