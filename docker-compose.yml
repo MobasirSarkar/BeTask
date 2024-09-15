@@ -16,13 +16,12 @@ services:
       context: ./client/
       dockerfile: Dockerfile
   ports:
-      - "5173:5173"
+      - "${NEXT_ENV_PORT}:${NEXT_ENV_PORT}"
   volumes:
     - ./client:/app
   networks:
     - betask-networks
   command: ["pnpm","run","dev"]
-
 networks:
   betask-networks:
    driver: bridge

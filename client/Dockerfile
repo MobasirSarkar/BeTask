@@ -1,14 +1,35 @@
-FROM node:22-alpine3.20 AS development
+FROM node:22-alpine AS base
 
-RUN mkdir /app
+FROM base AS deps
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
+COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
+RUN \
+   if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
+   elif [ -f package-lock.json ]; then npm ci; \
+   elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --frozen-lockfile; \
+   else echo "Lockfile not found." && exit 1; \
+   fi
 
-COPY package.json pnpm-lock.yaml ./
-RUN npm install -g pnpm@latest
-RUN pnpm install
+FROM base AS builder
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
 
 COPY . .
-EXPOSE 5173
 
-CMD [ "pnpm","run","dev" ]
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN \
+   if [ -f yarn.lock ]; then yarn run build; \
+   elif [ -f package-lock.json ]; then npm run build; \
+   elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm run build; \
+   else echo "Lockfile not found." && exit 1; \
+   fi
+
+EXPOSE ${NEXT_ENV_PORT}
+ENV HOSTNAME=${NEXT_HOSTNAME}
+
+
+CMD ["pnpm", "run", "dev"]
