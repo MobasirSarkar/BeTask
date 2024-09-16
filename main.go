@@ -10,12 +10,10 @@ import (
 	"github.com/MobasirSarkar/BeTask/database"
 	"github.com/MobasirSarkar/BeTask/pkg/auth"
 	"github.com/MobasirSarkar/BeTask/pkg/handlers"
+	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
+	"github.com/rs/cors"
 )
-
-func hello(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello Mobasir")
-}
 
 const PORT = ":8080"
 
@@ -44,33 +42,35 @@ func main() {
 
 	defer pg.Close() //close the database
 
-	// authentication
-	sessionStore := auth.NewCookieStore(auth.SessionOptions{
+	// server
+	mux := mux.NewRouter()
+	sessionStore := auth.NewSessionStore(auth.SessionsOptions{
 		CookiesKey: os.Getenv("COOKIES_SECRET_KEY"),
-		MaxAge:     60 * 60 * 24 * 30,
+		MaxAge:     86400 * 30,
 		Secure:     false,
 		HttpOnly:   false,
 	})
+	authService := auth.NewAuthService(sessionStore) // create a auth service
 
-	authService := auth.NewAuthService(sessionStore)
+	corsOptions := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:3000"},
+		AllowCredentials: true,
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Content-type", "Content-Length", "Accept-Encoding", "X-CSRF-Token", "Authorization"},
+	})
+
+	corsHandler := corsOptions.Handler(mux) //cors enabler
 
 	handler := handlers.New(pg, authService)
+	mux.Handle("/", http.FileServer(http.Dir("templates/"))) // fix :- need to change to next.js asap
 
-	// server
-	fmt.Printf("Listening to Localhost %v", PORT)
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /", hello)
+	mux.HandleFunc("/main", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "Main")
+	})
+	// auth routes
+	mux.HandleFunc("/auth/{provider}/login", handler.HandleProviderLogin).Methods("GET")
+	mux.HandleFunc("/auth/{provider}/callback", handler.HandleCallbackFunction).Methods("GET")
+	mux.HandleFunc("/auth/logout/{provider}", handler.HandleLogout).Methods("GET")
 
-	server := http.Server{
-		Addr:    PORT,
-		Handler: mux,
-	}
-
-	mux.HandleFunc("/", hello)
-	//auth
-	mux.HandleFunc("GET /auth/:provider", handler.HandleProviderLogin)
-	mux.HandleFunc("GET /auth/:provider/callback", handler.HandleAuthCallbackFunction)
-	mux.HandleFunc("GET /auth/logout/:provider", handler.HandleLogout)
-
-	server.ListenAndServe()
+	log.Fatalln(http.ListenAndServe(PORT, corsHandler)) // run the server
 }

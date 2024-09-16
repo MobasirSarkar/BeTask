@@ -5,6 +5,8 @@ import (
 	"github.com/MobasirSarkar/BeTask/pkg/auth"
 )
 
+// created this handler for better approach
+
 type Handler struct {
 	db   *database.Postgres
 	auth *auth.AuthService

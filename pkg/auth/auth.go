@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/gorilla/sessions"
+	"github.com/joho/godotenv"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/google"
@@ -15,6 +16,10 @@ import (
 type AuthService struct{}
 
 func NewAuthService(store sessions.Store) *AuthService {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error Loading .Env Files: %v", err)
+	}
 	gothic.Store = store
 
 	goth.UseProviders(
@@ -38,7 +43,6 @@ func (s *AuthService) GetSessionUser(r *http.Request) (goth.User, error) {
 	if u == nil {
 		return goth.User{}, fmt.Errorf("User is not authenticated! %v", u)
 	}
-
 	return u.(goth.User), nil
 }
 
@@ -50,32 +54,36 @@ func (s *AuthService) StoreUserSession(w http.ResponseWriter, r *http.Request, u
 	err := session.Save(r, w)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return err
 	}
 
 	return nil
 }
 
+// remove the user session
 func (s *AuthService) RemoveUserSession(w http.ResponseWriter, r *http.Request) {
+	// get the request and session
 	session, err := gothic.Store.Get(r, SessionName)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
 	}
 
 	session.Values["user"] = goth.User{}
+
 	session.Options.MaxAge = -1
+
+	session.Save(r, w)
 }
 
+// middleware
 func RequireAuth(handlerFunc http.HandlerFunc, auth *AuthService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		session, err := auth.GetSessionUser(r)
 		if err != nil {
-			log.Println("User is not Authenticated")
+			log.Println("User is not authenticated")
 			http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
-			return
 		}
+
 		log.Printf("user is authenticated! user: %v!", session.FirstName)
 
 		handlerFunc(w, r)

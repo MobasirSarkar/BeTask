@@ -17,6 +17,7 @@ var (
 	pgOnce     sync.Once
 )
 
+// create a New Pgxpool with the singleton pattern
 func NewPG(ctx context.Context, dbUrl string) (*Postgres, error) {
 	pgOnce.Do(func() {
 		db, err := pgxpool.New(ctx, dbUrl)
@@ -31,11 +32,11 @@ func NewPG(ctx context.Context, dbUrl string) (*Postgres, error) {
 
 func (pg *Postgres) Getpool() *pgxpool.Pool {
 	return pg.db
-}
+} // get the pool
 
 func (pg *Postgres) Ping(ctx context.Context) error {
 	return pg.db.Ping(ctx)
-}
+} //self explained by the name
 
 func (pg *Postgres) Close() {
 	pg.db.Close()
